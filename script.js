@@ -101,7 +101,7 @@ class Particle {
     }
 }
 
-// Load ảnh emoji và khởi tạo hạt
+// Load ảnh emoji và khởi tạo hạt — PHIÊN BẢN CHUẨN
 function init(emojiChar = '😍') {
     currentEmoji = emojiChar;
     particlesArray = [];
@@ -111,21 +111,22 @@ function init(emojiChar = '😍') {
     img.src = emojiImages[emojiChar] || emojiImages['😍'];
 
     img.onload = () => {
-        // Tính kích thước ảnh phù hợp màn hình
-        const maxSize = Math.min(canvas.width, canvas.height) * 0.6;
-        const scale = maxSize / img.width;
+        // Tính kích thước ảnh phù hợp màn hình — GIỮ NGUYÊN TỶ LỆ
+        const maxSize = Math.min(canvas.width, canvas.height) * 0.5; // Giảm xuống 0.5 để không quá lớn
+        const scale = maxSize / Math.max(img.width, img.height); // Dùng max để giữ tỷ lệ
         const w = img.width * scale;
         const h = img.height * scale;
-        const offsetX = (canvas.width - w) / 2;
-        const offsetY = (canvas.height - h) / 2;
 
-        // Vẽ ảnh lên canvas
+        // Vẽ ảnh vào GIỮA CANVAS — không dùng offset phức tạp
+        const centerX = (canvas.width - w) / 2;
+        const centerY = (canvas.height - h) / 2;
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, offsetX, offsetY, w, h);
+        ctx.drawImage(img, centerX, centerY, w, h);
 
-        // Quét pixel
-        const imageData = ctx.getImageData(offsetX, offsetY, w, h);
-        const step = 2; // Rất dày đặc → hình rõ
+        // Quét pixel TRONG VÙNG ẢNH ĐÃ VẼ
+        const imageData = ctx.getImageData(centerX, centerY, w, h);
+        const step = 2; // Rất dày đặc
 
         for (let y = 0; y < imageData.height; y += step) {
             for (let x = 0; x < imageData.width; x += step) {
@@ -138,18 +139,17 @@ function init(emojiChar = '😍') {
                     const b = imageData.data[index + 2];
                     const color = `rgb(${r}, ${g}, ${b})`;
                     
-                    // Lưu vị trí thực tế trên canvas (có offset)
-                    const realX = offsetX + x;
-                    const realY = offsetY + y;
+                    // Vị trí thực tế trên canvas
+                    const realX = centerX + x;
+                    const realY = centerY + y;
                     
                     particlesArray.push(new Particle(realX, realY, color));
                 }
-            }
-        }    };
+            }        }
+    };
 
     img.onerror = () => {
         console.warn("Không load được ảnh emoji, dùng fallback");
-        // Fallback: dùng emoji text với màu giả lập
         fallbackInit(emojiChar);
     };
 }
