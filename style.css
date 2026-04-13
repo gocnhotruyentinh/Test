@@ -13,30 +13,13 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    touch-action: none; /* Ngăn cuộn trang khi chạm vào canvas */
+    touch-action: none;
 }
 
 .app-container {
     position: relative;
     width: 100%;
-    max-width: 900px;
-    text-align: center;
-    padding: 20px;
-}
-
-header h1 {
-    font-size: 2.2rem;
-    margin-bottom: 8px;
-    background: linear-gradient(to right, #ff00cc, #3333ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 10px rgba(255, 0, 204, 0.3);
-}
-
-header p {
-    font-size: 1rem;
-    opacity: 0.8;
-    margin-bottom: 20px;
+    height: 100%;
 }
 
 #particleCanvas {
@@ -45,35 +28,35 @@ header p {
     left: 0;
     z-index: 1;
     width: 100%;
-    height: 100%;
-}
-.controls {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 12px;
-    z-index: 10;
-    background: rgba(45, 15, 80, 0.6);
-    padding: 12px 20px;
-    border-radius: 50px;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-    flex-wrap: wrap;
-    justify-content: center;
-    max-width: 90%;
+    height: calc(100% - 120px); /* Dành chỗ cho controls */
 }
 
+.controls {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+    background: rgba(20, 10, 40, 0.85);
+    padding: 15px 10px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.5);
+    flex-wrap: wrap;
+    justify-content: center;
+    max-height: 120px;
+    overflow-y: auto;
+}
 .emoji-btn {
     background: transparent;
     border: none;
-    font-size: 1.8rem;
+    font-size: 2rem;
     cursor: pointer;
     transition: all 0.2s ease;
     filter: grayscale(0.3);
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 50px;
+    min-height: 50px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -89,14 +72,15 @@ header p {
     background: #ff0055;
     color: white;
     border: none;
-    padding: 10px 18px;
+    padding: 12px 20px;
     border-radius: 25px;
     font-weight: bold;
     font-size: 1rem;
     cursor: pointer;
     transition: all 0.3s ease;
-    min-width: 44px;
-    min-height: 44px;}
+    min-width: 50px;
+    min-height: 50px;
+}
 
 #resetBtn:hover,
 #resetBtn:active {
@@ -104,19 +88,14 @@ header p {
     transform: scale(1.05);
 }
 
-/* Responsive cho màn hình nhỏ */
+/* Responsive */
 @media (max-width: 600px) {
-    header h1 {
-        font-size: 1.8rem;
-    }
-    header p {
-        font-size: 0.9rem;
-    }
-    .controls {
-        gap: 8px;
-        padding: 10px 15px;
-    }
     .emoji-btn {
-        font-size: 1.5rem;
+        font-size: 1.6rem;
+        min-width: 40px;
+        min-height: 40px;
     }
-  }
+    #resetBtn {
+        font-size: 0.9rem;        padding: 10px 15px;
+    }
+}
