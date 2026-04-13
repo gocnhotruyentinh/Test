@@ -1,25 +1,29 @@
 const canvas = document.getElementById('particleCanvas');
 const ctx = canvas.getContext('2d');
 
-// Đặt kích thước canvas bằng cửa sổ trình duyệt
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-}
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+// Mapping emoji -> URL ảnh PNG (Twemoji 72x72)
+const emojiImages = {
+    '😍': 'https://twemoji.maxcdn.com/v/latest/72x72/1f60d.png',
+    '': 'https://twemoji.maxcdn.com/v/latest/72x72/1f680.png',
+    '❤️': 'https://twemoji.maxcdn.com/v/latest/72x72/2764.png',
+    '💻': 'https://twemoji.maxcdn.com/v/latest/72x72/1f4bb.png',
+    '': 'https://twemoji.maxcdn.com/v/latest/72x72/1f308.png',
+    '': 'https://twemoji.maxcdn.com/v/latest/72x72/1f525.png',
+    '👽': 'https://twemoji.maxcdn.com/v/latest/72x72/1f47d.png',
+    '': 'https://twemoji.maxcdn.com/v/latest/72x72/1f921.png'
+};
 
 let particlesArray = [];
-const emojis = ['😍', '', '❤️', '💻', '', '🔥', '👽', ''];
+let currentEmoji = '😍';
 
-// Vị trí chạm hiện tại (cho mobile)
+// Vị trí chạm
 const touch = {
     x: null,
     y: null,
-    radius: 80 // Bán kính tương tác
+    radius: 100
 };
 
-// Xử lý sự kiện cảm ứng
+// Xử lý cảm ứng
 canvas.addEventListener('touchstart', handleTouchStart, false);
 canvas.addEventListener('touchmove', handleTouchMove, false);
 canvas.addEventListener('touchend', handleTouchEnd, false);
@@ -43,17 +47,17 @@ function handleTouchEnd(e) {
     touch.x = null;
     touch.y = null;
 }
-
 // Class Particle
 class Particle {
     constructor(x, y, color) {
-        this.x = Math.random() * canvas.width;        this.y = Math.random() * canvas.height;
-        this.size = Math.random() * 3 + 2; // Tăng kích thước hạt: 2-5px
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 3 + 3; // 3-6px
         this.density = (Math.random() * 20) + 1;
         this.baseX = x;
         this.baseY = y;
-        this.color = color; // Màu lấy từ pixel emoji
-        this.shadowColor = color.replace(')', ', 0.3)').replace('rgb', 'rgba'); // Thêm bóng mờ
+        this.color = color;
+        this.shadowColor = color.replace(')', ', 0.4)').replace('rgb', 'rgba');
     }
 
     draw() {
@@ -63,13 +67,11 @@ class Particle {
         ctx.closePath();
         ctx.fill();
 
-        // Vẽ bóng nhẹ để nổi bật
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 6;
         ctx.shadowColor = this.shadowColor;
     }
 
     update() {
-        // Nếu có chạm, tính lực đẩy
         if (touch.x !== null && touch.y !== null) {
             let dx = touch.x - this.x;
             let dy = touch.y - this.y;
@@ -79,43 +81,105 @@ class Particle {
                 const forceDirectionX = dx / distance;
                 const forceDirectionY = dy / distance;
                 const force = (touch.radius - distance) / touch.radius;
-                const directionX = forceDirectionX * force * this.density * 3;
-                const directionY = forceDirectionY * force * this.density * 3;
+                const directionX = forceDirectionX * force * this.density * 4;
+                const directionY = forceDirectionY * force * this.density * 4;
 
                 this.x -= directionX;
                 this.y -= directionY;
             }
         }
 
-        // Kéo về vị trí gốc
         if (this.x !== this.baseX) {
             let dx = this.x - this.baseX;
-            this.x -= dx / 12;
+            this.x -= dx / 10;
         }
         if (this.y !== this.baseY) {
             let dy = this.y - this.baseY;
-            this.y -= dy / 12;
+            this.y -= dy / 10;
         }
-        // Tắt shadow sau khi vẽ xong để không ảnh hưởng hiệu năng
         ctx.shadowBlur = 0;
     }
 }
 
-// Khởi tạo hạt từ emoji — LẤY MÀU THẬT TỪ PIXEL
+// Load ảnh emoji và khởi tạo hạt
 function init(emojiChar = '😍') {
+    currentEmoji = emojiChar;
     particlesArray = [];
-    
-    // Vẽ emoji lên canvas để quét pixel
+
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.src = emojiImages[emojiChar] || emojiImages['😍'];
+
+    img.onload = () => {
+        // Tính kích thước ảnh phù hợp màn hình
+        const maxSize = Math.min(canvas.width, canvas.height) * 0.6;
+        const scale = maxSize / img.width;
+        const w = img.width * scale;
+        const h = img.height * scale;
+        const offsetX = (canvas.width - w) / 2;
+        const offsetY = (canvas.height - h) / 2;
+
+        // Vẽ ảnh lên canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, offsetX, offsetY, w, h);
+
+        // Quét pixel
+        const imageData = ctx.getImageData(offsetX, offsetY, w, h);
+        const step = 2; // Rất dày đặc → hình rõ
+
+        for (let y = 0; y < imageData.height; y += step) {
+            for (let x = 0; x < imageData.width; x += step) {
+                const index = (y * 4 * imageData.width) + (x * 4);
+                const alpha = imageData.data[index + 3];
+                
+                if (alpha > 128) {
+                    const r = imageData.data[index];
+                    const g = imageData.data[index + 1];
+                    const b = imageData.data[index + 2];
+                    const color = `rgb(${r}, ${g}, ${b})`;
+                    
+                    // Lưu vị trí thực tế trên canvas (có offset)
+                    const realX = offsetX + x;
+                    const realY = offsetY + y;
+                    
+                    particlesArray.push(new Particle(realX, realY, color));
+                }
+            }
+        }    };
+
+    img.onerror = () => {
+        console.warn("Không load được ảnh emoji, dùng fallback");
+        // Fallback: dùng emoji text với màu giả lập
+        fallbackInit(emojiChar);
+    };
+}
+
+// Fallback nếu không load được ảnh
+function fallbackInit(emojiChar) {
+    particlesArray = [];
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
     const fontSize = Math.min(canvas.width, canvas.height) * 0.4;
-    ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
-    ctx.fillStyle = 'white';
+    ctx.font = `${fontSize}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    
+    // Màu giả lập theo emoji
+    let fakeColor = '#ffffff';
+    if (emojiChar === '😍') fakeColor = '#FFD700';
+    else if (emojiChar === '') fakeColor = '#FF4500';
+    else if (emojiChar === '❤️') fakeColor = '#FF1493';
+    else if (emojiChar === '💻') fakeColor = '#C0C0C0';
+    else if (emojiChar === '') fakeColor = '#FF69B4';
+    else if (emojiChar === '') fakeColor = '#FF4500';
+    else if (emojiChar === '👽') fakeColor = '#00FF00';
+    else if (emojiChar === '') fakeColor = '#FFFFFF';
+
+    ctx.fillStyle = fakeColor;
     ctx.fillText(emojiChar, canvas.width / 2, canvas.height / 2);
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const step = 3; // Giảm step → nhiều hạt hơn, hình rõ hơn (vẫn ổn trên mobile)
+    const step = 3;
 
     for (let y = 0; y < imageData.height; y += step) {
         for (let x = 0; x < imageData.width; x += step) {
@@ -123,21 +187,14 @@ function init(emojiChar = '😍') {
             const alpha = imageData.data[index + 3];
             
             if (alpha > 128) {
-                // Lấy màu RGB từ pixel
-                const r = imageData.data[index];
-                const g = imageData.data[index + 1];
-                const b = imageData.data[index + 2];
-                const color = `rgb(${r}, ${g}, ${b})`;
-                
-                particlesArray.push(new Particle(x, y, color));
+                particlesArray.push(new Particle(x, y, fakeColor));
             }
         }
     }
 }
 
 // Animation loop
-function animate() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function animate() {    ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < particlesArray.length; i++) {
         particlesArray[i].draw();
         particlesArray[i].update();
@@ -145,18 +202,20 @@ function animate() {
     requestAnimationFrame(animate);
 }
 
-// Gắn sự kiện cho nút emojidocument.querySelectorAll('.emoji-btn').forEach(btn => {
+// Gắn sự kiện nút
+document.querySelectorAll('.emoji-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const emoji = btn.getAttribute('data-emoji');
         init(emoji);
     });
 });
 
-// Nút reset
 document.getElementById('resetBtn').addEventListener('click', () => {
-    init(emojis[Math.floor(Math.random() * emojis.length)]);
+    const emojis = Object.keys(emojiImages);
+    const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
+    init(randomEmoji);
 });
 
-// Bắt đầu với emoji mặc định
+// Khởi động
 init();
 animate();
