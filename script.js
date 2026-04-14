@@ -1,15 +1,15 @@
 /* ═══════════════════════════════════════════════════════
-   Animated Particle Emoji — script.js  (v4 · 10 000 hạt)
-   ✓ 10 000 hạt — không lag vì viết thẳng ImageData
-   ✓ Màu đúng từ pixel emoji (alpha blend, không trắng)
-   ✓ TypedArray SoA — update loop cực nhanh
-   ✓ Glow nhẹ quanh tâm hạt, giữ màu
+   Animated Particle Emoji — script.js  (v5 · Mobile Fixed)
+   ✓ Fix đen màn hình trên mobile (bỏ new ImageData)
+   ✓ 10 000 hạt, màu đúng từ pixel emoji
+   ✓ Dùng ctx.getImageData + putImageData (tương thích tốt)
+   ✓ Fallback arc() nếu ImageData không hoạt động
    ═══════════════════════════════════════════════════════ */
 "use strict";
 
 // ── 1. CANVAS ──────────────────────────────────────────
 const canvas = document.getElementById("canvas");
-const ctx    = canvas.getContext("2d", { alpha: false });
+const ctx    = canvas.getContext("2d");   // KHÔNG { alpha:false } — mobile compat
 
 const MAX_W = 720, MAX_H = 460;
 let W, H;
@@ -19,8 +19,9 @@ function resize() {
   const vh = Math.min(window.innerHeight * 0.54, MAX_H);
   W = canvas.width  = Math.floor(vw);
   H = canvas.height = Math.floor(vh);
-  // Reset pixel buffer khi resize
-  pixelBuf = null;
+  // Vẽ nền đen ngay sau resize
+  ctx.fillStyle = "#060010";
+  ctx.fillRect(0, 0, W, H);
 }
 resize();
 window.addEventListener("resize", () => {
@@ -59,7 +60,7 @@ function sampleEmojiPixels(emojiChar, targetCount) {
 
   const { data } = octx.getImageData(0, 0, SIZE, SIZE);
   const pixels = [];
-  const mg = 0.09; // margin
+  const mg = 0.09;
 
   for (let py = 0; py < SIZE; py++) {
     for (let px = 0; px < SIZE; px++) {
@@ -80,29 +81,25 @@ function sampleEmojiPixels(emojiChar, targetCount) {
   return result;
 }
 
-// ── 4. PARTICLE DATA — Structure of Arrays ─────────────
+// ── 4. PARTICLE DATA (SoA TypedArray) ─────────────────
 const N = 10000;
 
 const pX  = new Float32Array(N);
 const pY  = new Float32Array(N);
 const pVX = new Float32Array(N);
 const pVY = new Float32Array(N);
-
-const pR  = new Float32Array(N);   // màu hiện tại
+const pR  = new Float32Array(N);
 const pG  = new Float32Array(N);
 const pB  = new Float32Array(N);
-
-const tR  = new Float32Array(N);   // màu đích
+const tR  = new Float32Array(N);
 const tG  = new Float32Array(N);
 const tB  = new Float32Array(N);
-
-const tX  = new Float32Array(N);   // vị trí đích
+const tX  = new Float32Array(N);
 const tY  = new Float32Array(N);
-
 const pAlpha = new Float32Array(N);
 const pEase  = new Float32Array(N);
-const pSize  = new Uint8Array(N);  // 1 | 2
-const pState = new Uint8Array(N);  // 0=float 1=seek 2=hold 3=explode
+const pSize  = new Uint8Array(N);
+const pState = new Uint8Array(N);
 
 function initParticle(i) {
   pX[i]  = Math.random() * W;
@@ -120,80 +117,57 @@ function initParticle(i) {
 }
 for (let i = 0; i < N; i++) initParticle(i);
 
-// Cache random để tránh gọi Math.random() 10000× / frame
+// Random pool
 const RND_SZ  = 8192;
 const rndPool = new Float32Array(RND_SZ);
 let   rndIdx  = 0;
 for (let i = 0; i < RND_SZ; i++) rndPool[i] = Math.random();
-
-function rnd() {
-  if (rndIdx >= RND_SZ) rndIdx = 0;
-  return rndPool[rndIdx++];
-}
-// Refresh pool async mỗi 2 giây
-setInterval(() => {
-  for (let i = 0; i < RND_SZ; i++) rndPool[i] = Math.random();
-}, 2000);
+setInterval(() => { for (let i = 0; i < RND_SZ; i++) rndPool[i] = Math.random(); }, 2000);
+function rnd() { if (rndIdx >= RND_SZ) rndIdx = 0; return rndPool[rndIdx++]; }
 
 // ── 5. UPDATE ──────────────────────────────────────────
 function updateAll() {
   for (let i = 0; i < N; i++) {
     const st = pState[i];
-
-    if (st === 0) {                     // FLOAT
-      pX[i] += pVX[i];
-      pY[i] += pVY[i];
-      pVX[i] += (rnd() - 0.5) * 0.10;
-      pVY[i] += (rnd() - 0.5) * 0.10;
-      pVX[i] *= 0.986;
-      pVY[i] *= 0.986;
+    if (st === 0) {
+      pX[i] += pVX[i]; pY[i] += pVY[i];
+      pVX[i] += (rnd() - 0.5) * 0.10; pVY[i] += (rnd() - 0.5) * 0.10;
+      pVX[i] *= 0.986; pVY[i] *= 0.986;
       if (pX[i] < 0 || pX[i] > W) pVX[i] *= -1;
       if (pY[i] < 0 || pY[i] > H) pVY[i] *= -1;
-
-    } else if (st === 1) {              // SEEK
-      const dx = tX[i] - pX[i];
-      const dy = tY[i] - pY[i];
-      const e  = pEase[i];
-      pX[i] += dx * e;
-      pY[i] += dy * e;
+    } else if (st === 1) {
+      const dx = tX[i] - pX[i], dy = tY[i] - pY[i], e = pEase[i];
+      pX[i] += dx * e; pY[i] += dy * e;
       pR[i] += (tR[i] - pR[i]) * 0.10;
       pG[i] += (tG[i] - pG[i]) * 0.10;
       pB[i] += (tB[i] - pB[i]) * 0.10;
       pAlpha[i] += (0.95 - pAlpha[i]) * 0.07;
       if (dx * dx + dy * dy < 1.5) pState[i] = 2;
-
-    } else if (st === 2) {              // HOLD
+    } else if (st === 2) {
       pX[i] += (tX[i] - pX[i]) * 0.12 + (rnd() - 0.5) * 0.35;
       pY[i] += (tY[i] - pY[i]) * 0.12 + (rnd() - 0.5) * 0.35;
       pR[i] += (tR[i] - pR[i]) * 0.05;
       pG[i] += (tG[i] - pG[i]) * 0.05;
       pB[i] += (tB[i] - pB[i]) * 0.05;
-
-    } else {                            // EXPLODE
-      pX[i] += pVX[i];
-      pY[i] += pVY[i];
-      pVY[i] += 0.18;
-      pVX[i] *= 0.97;
+    } else {
+      pX[i] += pVX[i]; pY[i] += pVY[i];
+      pVY[i] += 0.18; pVX[i] *= 0.97;
       pAlpha[i] -= 0.016;
       if (pAlpha[i] <= 0) initParticle(i);
     }
   }
 }
 
-// ── 6. DRAW — ImageData, alpha blend đúng màu ──────────
-let pixelBuf = null;
+// ── 6. DRAW — getImageData (mobile compatible) ─────────
+// Đọc từ canvas thật → fade → vẽ hạt → put lại
+// Không dùng "new ImageData" tránh lỗi trắng/đen mobile
 
 function drawAll() {
-  if (!pixelBuf || pixelBuf.width !== W || pixelBuf.height !== H) {
-    pixelBuf = new ImageData(W, H);
-    // Fill nền đen, alpha=255
-    const d = pixelBuf.data;
-    for (let j = 3; j < d.length; j += 4) d[j] = 255;
-  }
+  // Lấy pixel buffer từ canvas hiện tại
+  const imgData = ctx.getImageData(0, 0, W, H);
+  const d = imgData.data;
 
-  const d = pixelBuf.data;
-
-  // Trail fade 0.82
+  // Trail fade
   for (let j = 0; j < d.length; j += 4) {
     d[j]     = d[j]     * 0.82 | 0;
     d[j + 1] = d[j + 1] * 0.82 | 0;
@@ -201,7 +175,7 @@ function drawAll() {
     d[j + 3] = 255;
   }
 
-  // Vẽ hạt bằng alpha blend → giữ màu đúng
+  // Vẽ hạt — alpha blend giữ màu đúng
   for (let i = 0; i < N; i++) {
     const xi = pX[i] | 0;
     const yi = pY[i] | 0;
@@ -213,40 +187,42 @@ function drawAll() {
     const g  = pG[i] | 0;
     const b  = pB[i] | 0;
 
-    // Tâm
     let idx = (yi * W + xi) * 4;
     d[idx]     = (r * a + d[idx]     * ia) | 0;
     d[idx + 1] = (g * a + d[idx + 1] * ia) | 0;
     d[idx + 2] = (b * a + d[idx + 2] * ia) | 0;
+    d[idx + 3] = 255;
 
     if (pSize[i] === 2) {
-      // Glow nhẹ 4 hướng — alpha 45% giữ màu
-      const ha  = a * 0.45;
-      const hia = 1 - ha;
+      const ha = a * 0.45, hia = 1 - ha;
 
       idx = ((yi - 1) * W + xi) * 4;
       d[idx]     = (r * ha + d[idx]     * hia) | 0;
       d[idx + 1] = (g * ha + d[idx + 1] * hia) | 0;
       d[idx + 2] = (b * ha + d[idx + 2] * hia) | 0;
+      d[idx + 3] = 255;
 
       idx = ((yi + 1) * W + xi) * 4;
       d[idx]     = (r * ha + d[idx]     * hia) | 0;
       d[idx + 1] = (g * ha + d[idx + 1] * hia) | 0;
       d[idx + 2] = (b * ha + d[idx + 2] * hia) | 0;
+      d[idx + 3] = 255;
 
       idx = (yi * W + xi - 1) * 4;
       d[idx]     = (r * ha + d[idx]     * hia) | 0;
       d[idx + 1] = (g * ha + d[idx + 1] * hia) | 0;
       d[idx + 2] = (b * ha + d[idx + 2] * hia) | 0;
+      d[idx + 3] = 255;
 
       idx = (yi * W + xi + 1) * 4;
       d[idx]     = (r * ha + d[idx]     * hia) | 0;
       d[idx + 1] = (g * ha + d[idx + 1] * hia) | 0;
       d[idx + 2] = (b * ha + d[idx + 2] * hia) | 0;
+      d[idx + 3] = 255;
     }
   }
 
-  ctx.putImageData(pixelBuf, 0, 0);
+  ctx.putImageData(imgData, 0, 0);
 }
 
 // ── 7. TRIGGER EMOJI ───────────────────────────────────
@@ -254,21 +230,17 @@ let currentEmoji = null;
 
 function triggerEmoji(emojiChar, silent = false) {
   currentEmoji = emojiChar;
-  if (!silent) {
+  if (!silent)
     document.querySelectorAll(".emoji-btn").forEach(b =>
-      b.classList.toggle("active", b.dataset.emoji === emojiChar)
-    );
-  }
+      b.classList.toggle("active", b.dataset.emoji === emojiChar));
+
   const pts = sampleEmojiPixels(emojiChar, N);
   if (!pts.length) return;
-
   for (let i = 0; i < N; i++) {
     const pt  = pts[i % pts.length];
     tX[i]     = pt.x + (Math.random() - 0.5) * 1.5;
     tY[i]     = pt.y + (Math.random() - 0.5) * 1.5;
-    tR[i]     = pt.r;
-    tG[i]     = pt.g;
-    tB[i]     = pt.b;
+    tR[i]     = pt.r; tG[i] = pt.g; tB[i] = pt.b;
     pState[i] = 1;
     pEase[i]  = Math.random() * 0.055 + 0.022;
   }
@@ -282,8 +254,8 @@ function reset() {
     pState[i] = 3;
     const angle = Math.random() * Math.PI * 2;
     const spd   = Math.random() * 10 + 2;
-    pVX[i]    = Math.cos(angle) * spd;
-    pVY[i]    = Math.sin(angle) * spd - 4;
+    pVX[i] = Math.cos(angle) * spd;
+    pVY[i] = Math.sin(angle) * spd - 4;
     pAlpha[i] = 1;
   }
 }
