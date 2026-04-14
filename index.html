@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Animated Particle Emoji</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Background stars -->
+  <div class="bg-stars" id="bgStars"></div>
+
+  <div class="wrapper">
+    <header>
+      <span class="tag">HTML · CSS · JS</span>
+      <h1>Animated Particle<br><em>Emoji</em></h1>
+      <p class="subtitle">Biến 2000 hạt thành biểu tượng cảm xúc yêu thích của bạn</p>
+    </header>
+
+    <div class="canvas-wrap">
+      <canvas id="canvas"></canvas>
+      <div class="canvas-border"></div>
+    </div>
+
+    <div class="controls" id="controls">
+      <button class="emoji-btn active" data-emoji="🚀" data-name="rocket">🚀</button>
+      <button class="emoji-btn" data-emoji="⭐" data-name="star">⭐</button>
+      <button class="emoji-btn" data-emoji="❤️" data-name="heart">❤️</button>
+      <button class="emoji-btn" data-emoji="💻" data-name="laptop">💻</button>
+      <button class="emoji-btn" data-emoji="🔥" data-name="fire">🔥</button>
+      <button class="emoji-btn" data-emoji="🌈" data-name="rainbow">🌈</button>
+      <button class="emoji-btn" data-emoji="🦋" data-name="butterfly">🦋</button>
+      <button class="emoji-btn" data-emoji="💎" data-name="gem">💎</button>
+      <button class="reset-btn" id="resetBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        Reset
+      </button>
+    </div>
+
+    <p class="hint">✦ Nhấn emoji để xem hiệu ứng hạt ✦</p>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
